@@ -7,54 +7,32 @@
  * 
  *  license: MIT
  *  language: Google Apps Script
- *  author: Amit Agarwal
+ * 
+ *  Original author: Amit Agarwal
  *  email: amit@labnol.org
  *  web: https://digitalinspiration.com/
- * 
+ *
+ *  Modifications for week-occurring triggers by: Martin Kalén (mkalen @ GitHub)
  */
 
 
-/* Set the form’s open and close dates in YYYY-MM-DD HH:MM format. 
-If you would rather not have an open or close date, 
-just set the corresponding value to blank. */
-
-FORM_OPEN_DATE = "2019-01-01 08:00";
-FORM_CLOSE_DATE = "2019-12-25 23:30";
+/* Set the form's open and close day / time in JSON object format with keys:
+ * day: ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
+ * time: "HH:MM" (local time for the actual date)
+ */
+const FORM_OPEN = { "day": "Friday", "time": "16:00" };
+const FORM_CLOSE = { "day": "Wednesday", "time": "08:00" };
 
 /* Set the RESPONSE_COUNT equal to the total number of entries 
 that you would like to receive after which the form is closed automatically. 
 If you would not like to set a limit, set this value to blank. */
+RESPONSE_COUNT = "";
 
-RESPONSE_COUNT = "100";
+const weekdays = [ "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" ];
 
 /* Initialize the form, setup time based triggers */
 function Initialize() {
-
-    deleteTriggers_();
-
-    if ((FORM_OPEN_DATE !== "") &&
-        ((new Date()).getTime() < parseDate_(FORM_OPEN_DATE).getTime())) {
-        closeForm();
-        ScriptApp.newTrigger("openForm")
-            .timeBased()
-            .at(parseDate_(FORM_OPEN_DATE))
-            .create();
-    }
-
-    if (FORM_CLOSE_DATE !== "") {
-        ScriptApp.newTrigger("closeForm")
-            .timeBased()
-            .at(parseDate_(FORM_CLOSE_DATE))
-            .create();
-    }
-
-    if (RESPONSE_COUNT !== "") {
-        ScriptApp.newTrigger("checkLimit")
-            .forForm(FormApp.getActiveForm())
-            .onFormSubmit()
-            .create();
-    }
-
+    weeklyReInit();
 }
 
 /* Delete all existing Script Triggers */
@@ -69,6 +47,46 @@ function deleteTriggers_() {
 function informUser_(subject) {
     var formURL = FormApp.getActiveForm().getPublishedUrl();
     MailApp.sendEmail(Session.getActiveUser().getEmail(), subject, formURL);
+}
+
+function weeklyReInit() {
+    deleteTriggers_();
+
+    const dateTime = new Date();
+    if (FORM_OPEN !== "") {
+        const nextOpenDateTime = parseDate_(dateTime, FORM_OPEN);
+        if (dateTime.getTime() < nextOpenDateTime.getTime()) {
+            closeForm();
+            ScriptApp.newTrigger("openForm")
+                .timeBased()
+                .at(nextOpenDateTime)
+                .create();
+        }
+    }
+
+    if (FORM_CLOSE !== "") {
+        const nextCloseDateTime = parseDate_(dateTime, FORM_CLOSE);
+        if (dateTime.getTime() < nextCloseDateTime.getTime()) {
+            ScriptApp.newTrigger("closeForm")
+                .timeBased()
+                .at(nextCloseDateTime)
+                .create();
+        }
+    }
+
+    if (RESPONSE_COUNT !== "") {
+        ScriptApp.newTrigger("checkLimit")
+            .forForm(FormApp.getActiveForm())
+            .onFormSubmit()
+            .create();
+    }
+
+    // Re-init in a week
+    dateTime.setDate(dateTime.getDate() + 7);
+    ScriptApp.newTrigger("weeklyReInit")
+        .timeBased()
+        .at(dateTime)
+        .create();
 }
 
 /* Allow Google Form to Accept Responses */
@@ -94,7 +112,20 @@ function checkLimit() {
 }
 
 /* Parse the Date for creating Time-Based Triggers */
-function parseDate_(d) {
-    return new Date(d.substr(0, 4), d.substr(5, 2) - 1,
-        d.substr(8, 2), d.substr(11, 2), d.substr(14, 2));
+function parseDate_(baseDate, nextTrigger) {
+    // E.g: { "day": "Friday", "time": "16:00" }
+    //                                  01234
+    const nextWeekdayName = nextTrigger.day;
+    const nextWeekdayTime = nextTrigger.time;
+    const nextDayOfWeek = weekdays.indexOf(nextWeekdayName);
+    // TODO: Check index -1 and report invalid weekday name
+    const hours = nextWeekdayTime.substr(0, 2);
+    const minutes = nextWeekdayTime.substr(3, 2);
+    const nextDate = new Date(baseDate.getTime());
+    nextDate.setSeconds(0);
+    nextDate.setMilliseconds(0);
+    nextDate.setDate(nextDate.getDate() + (nextDayOfWeek + 7 - nextDate.getDay()) % 7);
+    nextDate.setHours(hours);
+    nextDate.setMinutes(minutes);
+    return nextDate;
 }
