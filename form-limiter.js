@@ -100,7 +100,6 @@ function openForm() {
 function closeForm() {
     var form = FormApp.getActiveForm();
     form.setAcceptingResponses(false);
-    deleteTriggers_();
     informUser_("Your Google Form is no longer accepting responses");
 }
 
