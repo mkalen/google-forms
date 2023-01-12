@@ -20,8 +20,8 @@
  * day: ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
  * time: "HH:MM" (local time for the actual date)
  */
-const FORM_OPEN = { "day": "Friday", "time": "16:00" };
-const FORM_CLOSE = { "day": "Wednesday", "time": "08:00" };
+const FORM_OPEN = { "day": "Thursday", "time": "16:20" };
+const FORM_CLOSE = { "day": "Thursday", "time": "16:30" };
 
 /* Set the RESPONSE_COUNT equal to the total number of entries 
 that you would like to receive after which the form is closed automatically. 
@@ -126,5 +126,9 @@ function parseDate_(baseDate, nextTrigger) {
     nextDate.setDate(nextDate.getDate() + (nextDayOfWeek + 7 - nextDate.getDay()) % 7);
     nextDate.setHours(hours);
     nextDate.setMinutes(minutes);
+    // If time has already passed in comparison to base date, add a week's time
+    if (nextDate.getTime() <= baseDate.getTime()) {
+      nextDate.setDate(nextDate.getDate() + 7);
+    }
     return nextDate;
 }
