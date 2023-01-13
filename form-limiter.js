@@ -20,13 +20,26 @@
  * day: ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
  * time: "HH:MM" (local time for the actual date)
  */
-const FORM_OPEN = { "day": "Thursday", "time": "16:20" };
-const FORM_CLOSE = { "day": "Thursday", "time": "16:30" };
+const FORM_OPEN = { "day": "Friday", "time": "14:40" };
+const FORM_CLOSE = { "day": "Friday", "time": "14:41" };
 
 /* Set the RESPONSE_COUNT equal to the total number of entries 
 that you would like to receive after which the form is closed automatically. 
 If you would not like to set a limit, set this value to blank. */
 RESPONSE_COUNT = "";
+
+const DO_NOT_MAIL = 0;
+const MAIL_ON_OPEN = 1;
+const MAIL_ON_CLOSE = 2;
+const ALL_MAILS = MAIL_ON_OPEN | MAIL_ON_CLOSE;
+
+/* Set e-mail information:
+DO_NOT_MAIL = no e-mails
+MAIL_ON_OPEN = only mail on form open
+MAIL_ON_CLOSE = only mail on form open
+ALL_MAILS = all e-mails (currently on open and close)
+*/
+const MAIL_NOTIFY = DO_NOT_MAIL;
 
 const weekdays = [ "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" ];
 
@@ -93,14 +106,18 @@ function weeklyReInit() {
 function openForm() {
     var form = FormApp.getActiveForm();
     form.setAcceptingResponses(true);
-    informUser_("Your Google Form is now accepting responses");
+    if (MAIL_NOTIFY & MAIL_ON_OPEN) {
+        informUser_("Your Google Form is now accepting responses");
+    }
 }
 
 /* Close the Google Form, Stop Accepting Reponses */
 function closeForm() {
     var form = FormApp.getActiveForm();
     form.setAcceptingResponses(false);
-    informUser_("Your Google Form is no longer accepting responses");
+    if (MAIL_NOTIFY & MAIL_ON_CLOSE) {
+        informUser_("Your Google Form is no longer accepting responses");
+    }
 }
 
 /* If Total # of Form Responses >= Limit, Close Form */
