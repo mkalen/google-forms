@@ -12,36 +12,45 @@
  *  email: amit@labnol.org
  *  web: https://digitalinspiration.com/
  *
- *  Modifications for week-occurring triggers by: Martin Kalén (mkalen @ GitHub)
+ *  Modifications for week-occurring triggers
+ *  By:     MK (mkalen @ GitHub)
+ *  Web:    https://github.com/mkalen/google-forms
  */
 
-
-/* Set the form's open and close day / time in JSON object format with keys:
- * day: ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
- * time: "HH:MM" (local time for the actual date)
- */
-const FORM_OPEN = { "day": "Friday", "time": "14:40" };
-const FORM_CLOSE = { "day": "Friday", "time": "14:41" };
-
-/* Set the RESPONSE_COUNT equal to the total number of entries 
-that you would like to receive after which the form is closed automatically. 
-If you would not like to set a limit, set this value to blank. */
-RESPONSE_COUNT = "";
-
+const weekdays = [ "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" ];
 const DO_NOT_MAIL = 0;
 const MAIL_ON_OPEN = 1;
 const MAIL_ON_CLOSE = 2;
-const ALL_MAILS = MAIL_ON_OPEN | MAIL_ON_CLOSE;
+const MAIL_ON_LIMIT = 4;
+const ALL_MAILS = MAIL_ON_OPEN | MAIL_ON_CLOSE | MAIL_ON_LIMIT;
 
-/* Set e-mail information:
-DO_NOT_MAIL = no e-mails
-MAIL_ON_OPEN = only mail on form open
-MAIL_ON_CLOSE = only mail on form open
-ALL_MAILS = all e-mails (currently on open and close)
-*/
-const MAIL_NOTIFY = DO_NOT_MAIL;
+/**
+ * User setting.
+ * Set the form's open and close day / time in JSON object format with keys:
+ * day: ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
+ * time: "HH:MM" (local time for the actual date)
+ */
+const FORM_OPEN = { "day": "Sunday", "time": "11:00" };
+const FORM_CLOSE = { "day": "Sunday", "time": "13:00" };
 
-const weekdays = [ "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" ];
+/**
+ * User setting.
+ * Set the RESPONSE_COUNT equal to the total number of entries 
+ * that you would like to receive after which the form is closed automatically.
+ * If you would not like to set a limit, set this value to blank.
+ */
+const RESPONSE_COUNT = "";
+
+/**
+ * User setting, choose e-mail notifications.
+ * Set value to either of (or use "|" to combine):
+ *  DO_NOT_MAIL = no e-mails
+ *  MAIL_ON_OPEN = mail on form open by time trigger
+ *  MAIL_ON_CLOSE = mail on form open by time trigger
+ *  MAIL_ON_LIMIT = mail on form open by response limit
+ *  ALL_MAILS = all e-mails
+ */
+const MAIL_NOTIFY = ALL_MAILS;
 
 /* Initialize the form, setup time based triggers */
 function Initialize() {
@@ -50,7 +59,7 @@ function Initialize() {
 
 /* Delete all existing Script Triggers */
 function deleteTriggers_() {
-    var triggers = ScriptApp.getProjectTriggers();
+    const triggers = ScriptApp.getProjectTriggers();
     for (var i in triggers) {
         ScriptApp.deleteTrigger(triggers[i]);
     }
@@ -65,11 +74,14 @@ function informUser_(subject) {
 function weeklyReInit() {
     deleteTriggers_();
 
+    var controlOpen = false;
     const dateTime = new Date();
+    var nextOpenDateTime;
+
     if (FORM_OPEN !== "") {
-        const nextOpenDateTime = parseDate_(dateTime, FORM_OPEN);
+        controlOpen = true;
+        nextOpenDateTime = parseDate_(dateTime, FORM_OPEN);
         if (dateTime.getTime() < nextOpenDateTime.getTime()) {
-            closeForm();
             ScriptApp.newTrigger("openForm")
                 .timeBased()
                 .at(nextOpenDateTime)
@@ -84,6 +96,16 @@ function weeklyReInit() {
                 .timeBased()
                 .at(nextCloseDateTime)
                 .create();
+        }
+
+        // If we control both open and close, check that current interval state is fulfilled
+        if (controlOpen) {
+            var shouldBeOpen = nextCloseDateTime.getTime() <= nextOpenDateTime.getTime();
+            if (shouldBeOpen && !isFormAcceptingResponses()) {
+                openForm();
+            } else if (!shouldBeOpen && isFormAcceptingResponses()) {
+                closeForm();
+            }
         }
     }
 
@@ -102,7 +124,18 @@ function weeklyReInit() {
         .create();
 }
 
-/* Allow Google Form to Accept Responses */
+/**
+ * Returns whether the form is currently open or not.
+ * @return boolean form is currently open or not
+ */
+function isFormAcceptingResponses() {
+    var form = FormApp.getActiveForm();
+    return form.isAcceptingResponses();
+}
+
+/**
+ * Allow Google Form to Accept Responses.
+ */
 function openForm() {
     var form = FormApp.getActiveForm();
     form.setAcceptingResponses(true);
@@ -111,7 +144,9 @@ function openForm() {
     }
 }
 
-/* Close the Google Form, Stop Accepting Reponses */
+/**
+ * Close the Google Form, Stop Accepting Reponses.
+ */
 function closeForm() {
     var form = FormApp.getActiveForm();
     form.setAcceptingResponses(false);
@@ -123,6 +158,9 @@ function closeForm() {
 /* If Total # of Form Responses >= Limit, Close Form */
 function checkLimit() {
     if (FormApp.getActiveForm().getResponses().length >= RESPONSE_COUNT) {
+        if (MAIL_NOTIFY & MAIL_ON_LIMIT) {
+            informUser_("Your Google Form reached the response limit");
+        }
         closeForm();
     }
 }
